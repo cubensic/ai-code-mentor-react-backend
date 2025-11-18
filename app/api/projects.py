@@ -12,6 +12,7 @@ from app.models.file import File
 from app.models.user import User
 from app.schemas.project import ProjectCreate, ProjectResponse
 from app.services.project_service import create_initial_files, check_max_projects
+from app.services.user_service import get_or_create_user
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
 
@@ -19,12 +20,19 @@ router = APIRouter(prefix="/api/projects", tags=["projects"])
 async def get_projects(
     sort_by: Optional[str] = "last_accessed",
     db: AsyncSession = Depends(get_db),
-    user_id: str = Depends(verify_clerk_token)
+    clerk_user_id: str = Depends(verify_clerk_token)
 ):
     """Get all projects for authenticated user"""
-    # TODO: Convert user_id (Clerk ID) to database user_id
-    # For now, using placeholder
-    query = select(Project).where(Project.user_id == UUID(user_id) if user_id != "placeholder_user_id" else Project.user_id.isnot(None))
+    # Get or create database user from Clerk ID
+    user = await get_or_create_user(
+        db=db,
+        clerk_user_id=clerk_user_id,
+        email=f"{clerk_user_id}@placeholder.com",  # Temporary - will get from token later
+        username=None
+    )
+    
+    # Query projects for this user
+    query = select(Project).where(Project.user_id == user.id)
     
     if sort_by == "created_at":
         query = query.order_by(Project.created_at.desc())
@@ -40,14 +48,19 @@ async def get_projects(
 async def create_project(
     project_data: ProjectCreate,
     db: AsyncSession = Depends(get_db),
-    user_id: str = Depends(verify_clerk_token)
+    clerk_user_id: str = Depends(verify_clerk_token)
 ):
     """Create new project"""
-    # TODO: Convert user_id (Clerk ID) to database user_id
-    db_user_id = UUID(user_id) if user_id != "placeholder_user_id" else UUID("00000000-0000-0000-0000-000000000000")
+    # Get or create database user
+    user = await get_or_create_user(
+        db=db,
+        clerk_user_id=clerk_user_id,
+        email=f"{clerk_user_id}@placeholder.com",
+        username=None
+    )
     
     # Check max projects limit
-    can_create = await check_max_projects(db, db_user_id, max_projects=10)
+    can_create = await check_max_projects(db, user.id, max_projects=10)
     if not can_create:
         raise HTTPException(
             status_code=400,
@@ -63,7 +76,7 @@ async def create_project(
     
     # Create project
     project = Project(
-        user_id=db_user_id,
+        user_id=user.id,  # Use database user ID
         name=project_data.name,
         template_type=project_data.template_type
     )
@@ -81,9 +94,17 @@ async def create_project(
 async def get_project(
     project_id: UUID,
     db: AsyncSession = Depends(get_db),
-    user_id: str = Depends(verify_clerk_token)
+    clerk_user_id: str = Depends(verify_clerk_token)
 ):
     """Get project details with all files"""
+    # Get or create database user
+    user = await get_or_create_user(
+        db=db,
+        clerk_user_id=clerk_user_id,
+        email=f"{clerk_user_id}@placeholder.com",
+        username=None
+    )
+    
     query = select(Project).options(selectinload(Project.files)).where(Project.id == project_id)
     result = await db.execute(query)
     project = result.scalar_one_or_none()
@@ -91,7 +112,9 @@ async def get_project(
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
     
-    # TODO: Verify project belongs to user
+    # Verify project belongs to user
+    if project.user_id != user.id:
+        raise HTTPException(status_code=403, detail="Access denied")
     
     return project
 
@@ -100,9 +123,17 @@ async def update_project(
     project_id: UUID,
     name: str,
     db: AsyncSession = Depends(get_db),
-    user_id: str = Depends(verify_clerk_token)
+    clerk_user_id: str = Depends(verify_clerk_token)
 ):
     """Rename project"""
+    # Get or create database user
+    user = await get_or_create_user(
+        db=db,
+        clerk_user_id=clerk_user_id,
+        email=f"{clerk_user_id}@placeholder.com",
+        username=None
+    )
+    
     query = select(Project).where(Project.id == project_id)
     result = await db.execute(query)
     project = result.scalar_one_or_none()
@@ -110,7 +141,9 @@ async def update_project(
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
     
-    # TODO: Verify project belongs to user
+    # Verify project belongs to user
+    if project.user_id != user.id:
+        raise HTTPException(status_code=403, detail="Access denied")
     
     project.name = name
     await db.commit()
@@ -122,9 +155,17 @@ async def update_project(
 async def delete_project(
     project_id: UUID,
     db: AsyncSession = Depends(get_db),
-    user_id: str = Depends(verify_clerk_token)
+    clerk_user_id: str = Depends(verify_clerk_token)
 ):
     """Delete project and all associated files"""
+    # Get or create database user
+    user = await get_or_create_user(
+        db=db,
+        clerk_user_id=clerk_user_id,
+        email=f"{clerk_user_id}@placeholder.com",
+        username=None
+    )
+    
     query = select(Project).where(Project.id == project_id)
     result = await db.execute(query)
     project = result.scalar_one_or_none()
@@ -132,7 +173,9 @@ async def delete_project(
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
     
-    # TODO: Verify project belongs to user
+    # Verify project belongs to user
+    if project.user_id != user.id:
+        raise HTTPException(status_code=403, detail="Access denied")
     
     await db.delete(project)
     await db.commit()

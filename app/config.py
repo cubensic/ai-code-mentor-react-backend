@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "postgresql+asyncpg://user:password@localhost:5432/aicode_db"
     
     # Clerk (optional for now)
-    CLERK_JWT_KEY: str = "placeholder_key"
+    CLERK_ISSUER_URL: str = "https://your-app-name.clerk.accounts.dev"
     
     # OpenAI (optional for now)
     OPENAI_API_KEY: str = "placeholder_key"

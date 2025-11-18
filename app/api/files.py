@@ -9,6 +9,7 @@ from app.api.auth import verify_clerk_token
 from app.models.file import File
 from app.models.project import Project
 from app.schemas.file import FileCreate, FileUpdate, FileResponse
+from app.services.user_service import get_or_create_user
 
 router = APIRouter(prefix="/api", tags=["files"])
 
@@ -20,9 +21,17 @@ async def create_file(
     project_id: UUID,
     file_data: FileCreate,
     db: AsyncSession = Depends(get_db),
-    user_id: str = Depends(verify_clerk_token)
+    clerk_user_id: str = Depends(verify_clerk_token)
 ):
     """Create new file in project"""
+    # Get or create database user
+    user = await get_or_create_user(
+        db=db,
+        clerk_user_id=clerk_user_id,
+        email=f"{clerk_user_id}@placeholder.com",
+        username=None
+    )
+    
     # Validate file type
     if file_data.file_type not in VALID_FILE_TYPES:
         raise HTTPException(
@@ -30,7 +39,7 @@ async def create_file(
             detail=f"Invalid file type. Must be one of: {VALID_FILE_TYPES}"
         )
     
-    # Verify project exists
+    # Verify project exists and belongs to user
     project_query = select(Project).where(Project.id == project_id)
     project_result = await db.execute(project_query)
     project = project_result.scalar_one_or_none()
@@ -38,7 +47,9 @@ async def create_file(
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
     
-    # TODO: Verify project belongs to user
+    # Verify project belongs to user
+    if project.user_id != user.id:
+        raise HTTPException(status_code=403, detail="Access denied")
     
     # Check if file with same name already exists
     existing_file_query = select(File).where(
@@ -72,10 +83,18 @@ async def create_file(
 async def get_files(
     project_id: UUID,
     db: AsyncSession = Depends(get_db),
-    user_id: str = Depends(verify_clerk_token)
+    clerk_user_id: str = Depends(verify_clerk_token)
 ):
     """Get all files for project"""
-    # Verify project exists
+    # Get or create database user
+    user = await get_or_create_user(
+        db=db,
+        clerk_user_id=clerk_user_id,
+        email=f"{clerk_user_id}@placeholder.com",
+        username=None
+    )
+    
+    # Verify project exists and belongs to user
     project_query = select(Project).where(Project.id == project_id)
     project_result = await db.execute(project_query)
     project = project_result.scalar_one_or_none()
@@ -83,7 +102,9 @@ async def get_files(
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
     
-    # TODO: Verify project belongs to user
+    # Verify project belongs to user
+    if project.user_id != user.id:
+        raise HTTPException(status_code=403, detail="Access denied")
     
     # Get all files
     files_query = select(File).where(File.project_id == project_id)
@@ -97,9 +118,17 @@ async def update_file(
     file_id: UUID,
     file_data: FileUpdate,
     db: AsyncSession = Depends(get_db),
-    user_id: str = Depends(verify_clerk_token)
+    clerk_user_id: str = Depends(verify_clerk_token)
 ):
     """Update file content (autosave)"""
+    # Get or create database user
+    user = await get_or_create_user(
+        db=db,
+        clerk_user_id=clerk_user_id,
+        email=f"{clerk_user_id}@placeholder.com",
+        username=None
+    )
+    
     file_query = select(File).where(File.id == file_id)
     file_result = await db.execute(file_query)
     file = file_result.scalar_one_or_none()
@@ -107,7 +136,13 @@ async def update_file(
     if not file:
         raise HTTPException(status_code=404, detail="File not found")
     
-    # TODO: Verify file belongs to user's project
+    # Verify file belongs to user's project
+    project_query = select(Project).where(Project.id == file.project_id)
+    project_result = await db.execute(project_query)
+    project = project_result.scalar_one_or_none()
+    
+    if not project or project.user_id != user.id:
+        raise HTTPException(status_code=403, detail="Access denied")
     
     # Update content
     if file_data.content is not None:
@@ -123,9 +158,17 @@ async def rename_file(
     file_id: UUID,
     name: str,
     db: AsyncSession = Depends(get_db),
-    user_id: str = Depends(verify_clerk_token)
+    clerk_user_id: str = Depends(verify_clerk_token)
 ):
     """Rename file"""
+    # Get or create database user
+    user = await get_or_create_user(
+        db=db,
+        clerk_user_id=clerk_user_id,
+        email=f"{clerk_user_id}@placeholder.com",
+        username=None
+    )
+    
     file_query = select(File).where(File.id == file_id)
     file_result = await db.execute(file_query)
     file = file_result.scalar_one_or_none()
@@ -133,7 +176,13 @@ async def rename_file(
     if not file:
         raise HTTPException(status_code=404, detail="File not found")
     
-    # TODO: Verify file belongs to user's project
+    # Verify file belongs to user's project
+    project_query = select(Project).where(Project.id == file.project_id)
+    project_result = await db.execute(project_query)
+    project = project_result.scalar_one_or_none()
+    
+    if not project or project.user_id != user.id:
+        raise HTTPException(status_code=403, detail="Access denied")
     
     # Check if another file with same name exists
     existing_file_query = select(File).where(
@@ -160,9 +209,17 @@ async def rename_file(
 async def delete_file(
     file_id: UUID,
     db: AsyncSession = Depends(get_db),
-    user_id: str = Depends(verify_clerk_token)
+    clerk_user_id: str = Depends(verify_clerk_token)
 ):
     """Delete file"""
+    # Get or create database user
+    user = await get_or_create_user(
+        db=db,
+        clerk_user_id=clerk_user_id,
+        email=f"{clerk_user_id}@placeholder.com",
+        username=None
+    )
+    
     file_query = select(File).where(File.id == file_id)
     file_result = await db.execute(file_query)
     file = file_result.scalar_one_or_none()
@@ -170,7 +227,13 @@ async def delete_file(
     if not file:
         raise HTTPException(status_code=404, detail="File not found")
     
-    # TODO: Verify file belongs to user's project
+    # Verify file belongs to user's project
+    project_query = select(Project).where(Project.id == file.project_id)
+    project_result = await db.execute(project_query)
+    project = project_result.scalar_one_or_none()
+    
+    if not project or project.user_id != user.id:
+        raise HTTPException(status_code=403, detail="Access denied")
     
     await db.delete(file)
     await db.commit()
