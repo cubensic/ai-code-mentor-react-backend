@@ -32,7 +32,14 @@ async def get_projects(
     )
     
     # Query projects for this user
-    query = select(Project).where(Project.user_id == user.id)
+    query = select(
+        Project,
+        func.count(File.id).label('file_count')
+    ).outerjoin(
+        File, Project.id == File.project_id
+    ).where(
+        Project.user_id == user.id
+    ).group_by(Project.id)
     
     if sort_by == "created_at":
         query = query.order_by(Project.created_at.desc())
@@ -40,7 +47,23 @@ async def get_projects(
         query = query.order_by(Project.last_accessed.desc())
     
     result = await db.execute(query)
-    projects = result.scalars().all()
+    rows = result.all()
+    
+    # Convert to ProjectResponse with file_count
+    projects = []
+    for project, file_count in rows:
+        project_dict = {
+            "id": project.id,
+            "user_id": project.user_id,
+            "name": project.name,
+            "template_type": project.template_type,
+            "created_at": project.created_at,
+            "updated_at": project.updated_at,
+            "last_accessed": project.last_accessed,
+            "file_count": file_count or 0
+        }
+        projects.append(project_dict)
+    
     return projects
 
 

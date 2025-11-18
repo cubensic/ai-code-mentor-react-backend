@@ -15,6 +15,7 @@ class ProjectResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     last_accessed: datetime
+    file_count: int = 0
 
 class Config:
     from_attributes = True # This allows Pydantic to convert SQLAlchemy models to Pydantic models
