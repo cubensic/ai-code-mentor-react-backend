@@ -20,6 +20,12 @@ class Settings(BaseSettings):
     
     # CORS (required!)
     FRONTEND_URL: str = "http://localhost:5173"
+
+    @property
+    def allowed_origins(self):
+        """Parse comma-separated URLs into a list"""
+        return [url.strip() for url in self.FRONTEND_URLS.split(",")]
+
     
     class Config:
         env_file = BASE_DIR / ".env"  # Points to backend/.env
