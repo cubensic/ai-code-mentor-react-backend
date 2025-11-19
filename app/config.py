@@ -19,13 +19,16 @@ class Settings(BaseSettings):
     MAX_PROJECTS_PER_USER: int = 10
     
     # CORS (required!)
-    FRONTEND_URL: str = "http://localhost:5173"
+    FRONTEND_URLS: str = "http://localhost:5173"
 
-    @property
-    def allowed_origins(self):
+    def get_allowed_origins(self) -> list[str]:
         """Parse comma-separated URLs into a list"""
         return [url.strip() for url in self.FRONTEND_URLS.split(",")]
-
+    
+    @property
+    def allowed_origins(self) -> list[str]:
+        """Property wrapper for get_allowed_origins"""
+        return self.get_allowed_origins()
     
     class Config:
         env_file = BASE_DIR / ".env"  # Points to backend/.env
