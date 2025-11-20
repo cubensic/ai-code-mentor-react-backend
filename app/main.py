@@ -5,6 +5,9 @@ from app.api import projects, files, chat, users
 
 app = FastAPI(title="AI Code Learning Platform")
 
+# DEBUG: Print allowed origins to logs
+print(f"Allowed Origins: {settings.allowed_origins}")
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.allowed_origins, 
