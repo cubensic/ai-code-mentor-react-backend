@@ -19,7 +19,7 @@ class Settings(BaseSettings):
     MAX_PROJECTS_PER_USER: int = 10
     
     # CORS (required!)
-    FRONTEND_URLS: str = "http://localhost:5173"
+    FRONTEND_URLS: str = "http://localhost:5173", "https://ai-code-mentor-react-frontend.vercel.app"
 
     def get_allowed_origins(self) -> list[str]:
         """Parse comma-separated URLs into a list"""
