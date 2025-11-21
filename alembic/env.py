@@ -55,13 +55,11 @@ def do_run_migrations(connection: Connection) -> None:
 
 async def run_migrations_online() -> None:
     """Run migrations in 'online' mode with async engine."""
-    # Get config and override the driver to use asyncpg
-    configuration = config.get_section(config.config_ini_section, {})
-    configuration["sqlalchemy.url"] = settings.DATABASE_URL
+    from sqlalchemy.ext.asyncio import create_async_engine
     
-    connectable = async_engine_from_config(
-        configuration,
-        prefix="sqlalchemy.",
+    # Create engine directly from URL to ensure asyncpg is used
+    connectable = create_async_engine(
+        settings.DATABASE_URL,
         poolclass=pool.NullPool,
     )
 
@@ -69,7 +67,6 @@ async def run_migrations_online() -> None:
         await connection.run_sync(do_run_migrations)
 
     await connectable.dispose()
-
 
 if context.is_offline_mode():
     run_migrations_offline()
